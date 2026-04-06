@@ -4,9 +4,14 @@ import { initializeApp } from "firebase/app";
 import { getDatabase, ref, update, remove, onValue } from "firebase/database";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyAb9PqfcSlOmRriKMdkwuQzCJtWrnk-GKc",
-  databaseURL: "https://ambulance-db-d3a9e-default-rtdb.asia-southeast1.firebasedatabase.app/",
-  projectId: "ambulance-db-d3a9e",
+  apiKey: "AIzaSyCR8WT2WcS1QoUvlL93FjOXjst7ryWZ2P0",
+  authDomain: "pd-ambulance.firebaseapp.com",
+  projectId: "pd-ambulance",
+  storageBucket: "pd-ambulance.firebasestorage.app",
+  messagingSenderId: "596987992905",
+  appId: "1:596987992905:web:a5e4a1f7cf8822f1de1898",
+  measurementId: "G-MZVPXS26H1",
+  databaseURL: "https://pd-ambulance-default-rtdb.asia-southeast1.firebasedatabase.app/"
 };
 
 const app = initializeApp(firebaseConfig);
