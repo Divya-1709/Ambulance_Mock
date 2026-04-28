@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Trash2, Play, Square, Siren, Power, Activity, Plus, RefreshCw, Heart, Wind } from 'lucide-react';
+import { Trash2, Play, Square, Siren, Activity, Plus, RefreshCw, Heart, Wind } from 'lucide-react';
 import { initializeApp } from "firebase/app";
 import { getDatabase, ref, update, remove, onValue } from "firebase/database";
 
@@ -28,7 +28,7 @@ export default function FleetSimulator() {
   const [newId, setNewId] = useState("AMB_001");
   const [isSimulating, setIsSimulating] = useState(true);
 
-  // --- LOGIC SECTION ---
+  // 🔄 Sync with Firebase
   useEffect(() => {
     const dbRef = ref(db, 'ambulances');
     const unsubscribe = onValue(dbRef, (snapshot) => {
@@ -38,15 +38,22 @@ export default function FleetSimulator() {
     return () => unsubscribe();
   }, []);
 
+  // 🧠 Simulation Loop
   useEffect(() => {
     if (!isSimulating) return;
+
     const interval = setInterval(() => {
       const updates = {};
       const timestamp = Date.now();
+
       Object.values(ambulances).forEach((amb) => {
-        if (!amb.isRunning) return; 
+        // 🚫 Skip real hardware
+        if (amb.ambulanceId === "AMB_004") return;
+
+        if (!amb.isRunning) return;
+
         let { latitude, longitude, heartRate, spo2, isEmergency, ambulanceId } = amb;
-        
+
         latitude += (Math.random() - 0.5) * 0.001;
         longitude += (Math.random() - 0.5) * 0.001;
 
@@ -59,18 +66,30 @@ export default function FleetSimulator() {
         }
 
         updates[`ambulances/${ambulanceId}`] = {
-          ...amb, latitude, longitude, heartRate, spo2,
-          hasPatient: isEmergency, timestamp
+          ...amb,
+          latitude,
+          longitude,
+          heartRate,
+          spo2,
+          hasPatient: isEmergency,
+          timestamp
         };
       });
-      if (Object.keys(updates).length > 0) update(ref(db), updates);
-    }, 1000); 
+
+      if (Object.keys(updates).length > 0) {
+        update(ref(db), updates);
+      }
+    }, 1000);
+
     return () => clearInterval(interval);
   }, [ambulances, isSimulating]);
 
+  // 🚑 Deploy
   const deployAmbulance = () => {
     if (!newId) return;
+
     const loc = getRandomLocation();
+
     const newAmb = {
       ambulanceId: newId,
       latitude: loc.lat,
@@ -78,19 +97,26 @@ export default function FleetSimulator() {
       heartRate: 0,
       spo2: 0,
       hasPatient: false,
-      isRunning: false,    
-      isEmergency: false, 
+      isRunning: false,
+      isEmergency: false,
       timestamp: Date.now()
     };
+
     update(ref(db, `ambulances/${newId}`), newAmb);
+
     const num = parseInt(newId.split('_')[1] || "0") + 1;
     setNewId(`AMB_${String(num).padStart(3, '0')}`);
   };
 
   const removeAmbulance = (id) => remove(ref(db, `ambulances/${id}`));
 
+  // ▶️ Start / Stop
   const handleStartStop = (id) => {
     const amb = ambulances[id];
+
+    // 🚫 prevent controlling real hardware
+    if (id === "AMB_004") return;
+
     if (amb.isRunning) {
       update(ref(db, `ambulances/${id}`), { isRunning: false, isEmergency: false });
     } else {
@@ -98,8 +124,13 @@ export default function FleetSimulator() {
     }
   };
 
+  // 🚨 Emergency
   const handleEmergency = (id) => {
     const amb = ambulances[id];
+
+    // 🚫 prevent controlling real hardware
+    if (id === "AMB_004") return;
+
     if (amb.isEmergency) {
       update(ref(db, `ambulances/${id}`), { isEmergency: false });
     } else {
@@ -107,18 +138,8 @@ export default function FleetSimulator() {
     }
   };
 
-  // --- UI SECTION ---
   return (
     <div style={styles.appContainer}>
-      <style>{`
-        body, html { margin: 0; padding: 0; overflow: hidden; height: 100%; font-family: 'Inter', sans-serif; background-color: #F9FAFB; }
-        ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 3px; }
-        ::-webkit-scrollbar-thumb:hover { background: #94A3B8; }
-      `}</style>
-      
-      {/* Fixed Header */}
       <div style={styles.header}>
         <div style={styles.brandSection}>
           <div style={styles.logoBox}>
@@ -132,96 +153,68 @@ export default function FleetSimulator() {
             style={styles.input}
             value={newId}
             onChange={(e) => setNewId(e.target.value)}
-            placeholder="ID (e.g. AMB_101)"
           />
+
           <button style={styles.deployBtn} onClick={deployAmbulance}>
-            <Plus size={18} /> <span style={styles.btnText}>Deploy</span>
+            <Plus size={18} /> Deploy
           </button>
+
           <button style={styles.refreshBtn} onClick={() => window.location.reload()}>
             <RefreshCw size={18} />
           </button>
         </div>
       </div>
 
-      {/* Scrollable Grid Area */}
       <div style={styles.contentArea}>
         <div style={styles.grid}>
-          {Object.values(ambulances).sort((a, b) => a.ambulanceId.localeCompare(b.ambulanceId)).map((amb) => (
-            <div key={amb.ambulanceId} style={{...styles.card, opacity: amb.isRunning ? 1 : 0.85, borderColor: amb.isEmergency ? '#FECACA' : '#F3F4F6'}}>
-              
-              {/* Card Header */}
-              <div style={styles.cardHeader}>
-                <div>
-                  <div style={styles.idText}>{amb.ambulanceId}</div>
-                  <div style={styles.coordText}>
-                    {amb.latitude?.toFixed(4)}, {amb.longitude?.toFixed(4)}
+          {Object.values(ambulances)
+            .sort((a, b) => a.ambulanceId.localeCompare(b.ambulanceId))
+            .map((amb) => (
+              <div key={amb.ambulanceId} style={styles.card}>
+
+                <div style={styles.cardHeader}>
+                  <div>
+                    <div style={styles.idText}>{amb.ambulanceId}</div>
+                    <div style={styles.coordText}>
+                      {amb.latitude?.toFixed(4)}, {amb.longitude?.toFixed(4)}
+                    </div>
                   </div>
-                </div>
-                <div style={styles.statusCol}>
-                  <span style={{
-                    ...styles.badge,
-                    backgroundColor: !amb.isRunning ? '#F1F5F9' : (amb.isEmergency ? '#FEF2F2' : '#ECFDF5'),
-                    color: !amb.isRunning ? '#64748B' : (amb.isEmergency ? '#991B1B' : '#047857')
-                  }}>
-                    {!amb.isRunning ? 'OFFLINE' : (amb.isEmergency ? 'EMERGENCY' : 'ONLINE')}
-                  </span>
-                  <button style={styles.deleteIcon} onClick={() => removeAmbulance(amb.ambulanceId)}>
+
+                  <button onClick={() => removeAmbulance(amb.ambulanceId)}>
                     <Trash2 size={16} />
                   </button>
                 </div>
-              </div>
 
-              {/* Vitals Data */}
-              <div style={styles.vitalsBox}>
-                <div style={styles.vitalGroup}>
-                  <Heart size={18} fill={amb.isEmergency ? "#EF4444" : "none"} color={amb.isEmergency ? "#EF4444" : "#94A3B8"} />
-                  <span style={{ ...styles.vitalNum, color: amb.isEmergency ? "#0F172A" : "#94A3B8" }}>
-                    {amb.isEmergency ? amb.heartRate : '--'} <span style={styles.unit}>bpm</span>
-                  </span>
+                <div style={styles.vitalsBox}>
+                  <div style={styles.vitalGroup}>
+                    <Heart size={18} />
+                    {amb.heartRate || '--'}
+                  </div>
+                  <div style={styles.vitalGroup}>
+                    <Wind size={18} />
+                    {amb.spo2 || '--'}
+                  </div>
                 </div>
-                <div style={styles.vitalGroup}>
-                  <Wind size={18} color={amb.isEmergency ? "#10B981" : "#94A3B8"} />
-                  <span style={{ ...styles.vitalNum, color: amb.isEmergency ? "#0F172A" : "#94A3B8" }}>
-                    {amb.isEmergency ? amb.spo2 : '--'} <span style={styles.unit}>%</span>
-                  </span>
+
+                <div style={styles.footer}>
+                  <button onClick={() => handleStartStop(amb.ambulanceId)}>
+                    {amb.isRunning ? <Square size={16}/> : <Play size={16}/>}
+                  </button>
+
+                  <button onClick={() => handleEmergency(amb.ambulanceId)}>
+                    <Siren size={16}/>
+                  </button>
                 </div>
+
               </div>
-
-              {/* Action Buttons */}
-              <div style={styles.footer}>
-                <button
-                  onClick={() => handleStartStop(amb.ambulanceId)}
-                  style={{
-                    ...styles.actionBtn,
-                    backgroundColor: amb.isRunning ? '#1E293B' : '#0F172A',
-                    flex: 1
-                  }}
-                >
-                  {amb.isRunning ? <Square size={16} fill="white" /> : <Play size={16} fill="white" />}
-                  {amb.isRunning ? 'Stop' : 'Start'}
-                </button>
-
-                <button
-                  onClick={() => handleEmergency(amb.ambulanceId)}
-                  style={{
-                    ...styles.actionBtn,
-                    backgroundColor: amb.isEmergency ? '#EF4444' : '#F1F5F9',
-                    color: amb.isEmergency ? 'white' : '#475569',
-                    flex: 1.2
-                  }}
-                >
-                  <Siren size={18} />
-                  {amb.isEmergency ? 'Emergency' : 'Emergency'}
-                </button>
-              </div>
-
-            </div>
-          ))}
+            ))}
         </div>
       </div>
     </div>
   );
 }
+
+
 
 const styles = {
   appContainer: {
